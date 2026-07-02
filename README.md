@@ -36,6 +36,7 @@ damage the board.
 |------|------------|
 | `code.py` | The firmware — servo + LED state machine, button handling, dance |
 | `boot.py` | Sets a custom USB identity and renames the drive to `CLAWDBOT` |
+| `README.board.md` | Short end-user README deployed onto the board's drive as `README.md` |
 | `servo_notify.py` | Host-side hook script; sends a one-byte command to the board over USB serial |
 | `install.sh` | Registers the Claude Code hooks and installs `servo_notify.py` |
 | `flash.sh` | One-command flasher: firmware + files + rename, no BOOTSEL button needed |

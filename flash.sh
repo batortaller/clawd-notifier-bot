@@ -15,7 +15,8 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 UF2="$SRC_DIR/cp_waveshare_rp2040_zero-10.2.1.uf2"
-FILES=(boot.py code.py install.sh README.md servo_notify.py)
+FILES=(boot.py code.py install.sh servo_notify.py)
+BOARD_README="README.board.md"   # deployed to the drive as README.md
 NEW_LABEL="CLAWDBOT"
 BOOTLOADER="/Volumes/RPI-RP2"
 
@@ -25,7 +26,7 @@ die()  { printf '\033[31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
 
 # --- preflight ---------------------------------------------------------------
 [ -f "$UF2" ] || die "firmware not found: $UF2"
-for f in "${FILES[@]}"; do
+for f in "${FILES[@]}" "$BOARD_README"; do
   [ -f "$SRC_DIR/$f" ] || die "missing project file: $f"
 done
 # Pick a Python that actually has pyserial. The default `python3` may be a
@@ -100,6 +101,8 @@ for f in "${FILES[@]}"; do
   cp "$SRC_DIR/$f" "$DRV/$f"
   ok "$f"
 done
+cp "$SRC_DIR/$BOARD_README" "$DRV/README.md"   # board-facing README
+ok "README.md (from $BOARD_README)"
 sync
 sleep 3                      # let writes settle (relabel skips on a busy FS)
 
