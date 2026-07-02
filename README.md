@@ -17,6 +17,7 @@ to make the arm dance and flash the LED through a color show. 🎉
 
 Runs [CircuitPython](https://circuitpython.org/) on a
 [Waveshare RP2040-Zero](https://www.waveshare.com/wiki/RP2040-Zero).
+The servo uses an [MG90S](https://components101.com/motors/mg90s-metal-gear-servo-motor) 180 degree servo motor.
 
 ## Hardware
 
