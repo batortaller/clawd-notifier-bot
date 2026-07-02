@@ -19,11 +19,18 @@ if ! command -v python3 &>/dev/null; then
     echo "  ✗ python3 not found. Install it from https://python.org"
     exit 1
 fi
-if ! python3 -c "import serial" &>/dev/null; then
-    echo "  Installing pyserial..."
-    pip3 install pyserial --quiet
+
+# Use an isolated venv so we never touch an "externally managed" (PEP 668)
+# system/Homebrew Python, and so the hook always has a deterministic interpreter.
+VENV_DIR="$HOOK_DIR/.venv"
+VENV_PY="$VENV_DIR/bin/python"
+mkdir -p "$HOOK_DIR"
+[ -x "$VENV_PY" ] || python3 -m venv "$VENV_DIR"
+if ! "$VENV_PY" -c "import serial" &>/dev/null; then
+    echo "  Installing pyserial into venv..."
+    "$VENV_PY" -m pip install pyserial --quiet
 fi
-echo "  ✓ Dependencies OK"
+echo "  ✓ Dependencies OK ($VENV_DIR)"
 
 echo "→ Installing hook script..."
 mkdir -p "$HOOK_DIR"
@@ -31,7 +38,7 @@ cp "$SRC_DIR/servo_notify.py" "$HOOK_DIR/servo_notify.py"
 chmod +x "$HOOK_DIR/servo_notify.py"
 echo "  ✓ Installed to $HOOK_DIR/servo_notify.py"
 
-echo "→ Registering Claude Code hooks (Stop/Notification -> raise, UserPromptSubmit -> lower)..."
+echo "→ Registering Claude Code hooks (Stop + Notification -> raise, UserPromptSubmit + PostToolUse -> lower)..."
 mkdir -p "$(dirname "$SETTINGS")"
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 
@@ -47,32 +54,47 @@ except (json.JSONDecodeError, FileNotFoundError):
 hooks = settings.setdefault("hooks", {})
 
 
-def ensure(event, arg):
-    cmd = "python3 ~/.claude/hooks/servo_notify.py " + arg
+def ensure(event, arg, matcher=""):
+    cmd = "~/.claude/hooks/.venv/bin/python ~/.claude/hooks/servo_notify.py " + arg
     entries = hooks.setdefault(event, [])
-    already = any(
-        any(h.get("command", "").startswith("python3 ~/.claude/hooks/servo_notify.py")
-            for h in entry.get("hooks", []))
-        for entry in entries
-    )
-    if already:
-        print(f"  ✓ {event} hook already registered, skipping")
+    found = False
+    for entry in entries:
+        for h in entry.get("hooks", []):
+            if "servo_notify.py" in h.get("command", ""):
+                found = True
+                # Upgrade stale entries in place: command (e.g. bare python3) and
+                # matcher (empty "" never matched permission_prompt notifications).
+                if h["command"] != cmd or entry.get("matcher", "") != matcher:
+                    h["command"] = cmd
+                    entry["matcher"] = matcher
+                    print(f"  ✓ {event} hook updated")
+                else:
+                    print(f"  ✓ {event} hook already registered, skipping")
+    if found:
         return
-    entries.append({"matcher": "", "hooks": [{"type": "command", "command": cmd}]})
+    entries.append({"matcher": matcher, "hooks": [{"type": "command", "command": cmd}]})
     print(f"  ✓ {event} hook registered")
 
 
-ensure("Stop", "up")
-ensure("Notification", "up")        # Claude paused to ask a question / needs input
-ensure("UserPromptSubmit", "think") # Claude started working -> pulse white
+ensure("Stop", "up")            # Claude finished a task
+# Empty matcher = all notification types. NOTE: Claude Code only emits a
+# Notification event when it actually surfaces one (terminal CLI). The VSCode
+# extension handles permission prompts in-IDE and does NOT fire this hook, so the
+# flag will not rise on permission requests there. See README/CHANGELOG.
+ensure("Notification", "up")    # Claude needs permission / is asking the user
+ensure("UserPromptSubmit", "down")  # next prompt sent
+ensure("PostToolUse", "down")   # approved action ran -> drop the flag
 path.write_text(json.dumps(settings, indent=2))
 PYEOF
 
 echo ""
 echo "✓ All done!"
-echo "  • Servo raises to 180° when Claude Code finishes a task."
-echo "  • Press the acknowledge button on GP0 (or send your next prompt) to lower it."
+echo "  • Servo raises to 180° when Claude Code finishes a task,"
+echo "    needs permission, or is asking you a question."
+echo "  • It lowers when the approved action completes or you send your next prompt"
+echo "    (or press the acknowledge button on GP0)."
+echo "  • Multiple pending requests are counted: clearing one while others remain"
+echo "    dips the arm and raises it again to signal there's still something waiting."
 echo ""
 echo "  To uninstall:"
-echo "    rm ~/.claude/hooks/servo_notify.py"
-echo "    # and remove the Stop + UserPromptSubmit servo entries from ~/.claude/settings.json"
+echo "    bash \"$SRC_DIR/uninstall.sh\""

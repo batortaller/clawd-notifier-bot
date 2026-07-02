@@ -5,10 +5,12 @@ Claude Code is doing, from across the room:
 
 | State | Trigger (Claude Code hook) | Flag | LED |
 |-------|----------------------------|------|-----|
-| **Working / thinking** | `UserPromptSubmit` | down (0°) | pulses **white**, slowly (⅓ Hz) |
-| **Finished a task** | `Stop` | up (180°) | solid **white** |
-| **Needs you** (asks a question / permission) | `Notification` | up (180°) | solid **white** |
+| **Wants your attention** — finished, needs permission, or asked a question | `Stop`, `Notification` | up (180°) | solid **white** |
+| **Working** — after each tool call, or you sent a new prompt | `PostToolUse`, `UserPromptSubmit` | down (0°) | off |
 | **Acknowledged** | button press | down (0°) | off |
+
+Attention requests are **ref-counted**: if several are still pending, clearing one
+dips the arm and raises it again so you can tell there's more waiting.
 
 Press the button once to lower the flag ("I saw it"). **Triple-press within 2 s**
 to make the arm dance and flash the LED through a color show. 🎉
@@ -38,7 +40,8 @@ damage the board.
 | `boot.py` | Sets a custom USB identity and renames the drive to `CLAWDBOT` |
 | `README.board.md` | Short end-user README deployed onto the board's drive as `README.md` |
 | `servo_notify.py` | Host-side hook script; sends a one-byte command to the board over USB serial |
-| `install.sh` | Registers the Claude Code hooks and installs `servo_notify.py` |
+| `install.sh` | Installs `servo_notify.py` (into an isolated venv) and registers the Claude Code hooks |
+| `uninstall.sh` | Reverses `install.sh`: removes the hooks, script, venv, and state (recoverable — backs up + trashes) |
 | `flash.sh` | One-command flasher: firmware + files + rename, no BOOTSEL button needed |
 | `cp_waveshare_rp2040_zero-10.2.1.uf2` | The exact CircuitPython build this is tested against |
 
@@ -71,9 +74,19 @@ One leg to the `GP0` pad, the other to any `GND` pad.
 bash install.sh
 ```
 
-This installs the hook script to `~/.claude/hooks/` and registers three hooks in
-`~/.claude/settings.json`: `Stop` and `Notification` → raise, `UserPromptSubmit`
-→ pulse-while-working.
+This installs the hook script into an isolated venv under `~/.claude/hooks/` (so
+it never touches an externally-managed system/Homebrew Python) and registers four
+hooks in `~/.claude/settings.json`: `Stop` + `Notification` → raise,
+`UserPromptSubmit` + `PostToolUse` → lower.
+
+To remove everything again:
+
+```bash
+bash uninstall.sh
+```
+
+It backs up `settings.json` and moves removed files to the Trash first, and leaves
+the board's firmware untouched.
 
 ## How it works
 
@@ -82,9 +95,13 @@ it in its main loop:
 
 | Byte | Meaning | Result |
 |------|---------|--------|
-| `1` | alert (finished / needs you) | flag up, LED solid white |
+| `1` | attention (finished / needs you) | flag up, LED solid white |
 | `2` | thinking / working | flag down, LED pulses white |
 | `0` | idle | flag down, LED off |
+
+The current hooks drive only `0`/`1` (ref-counted on the host, via
+`servo_notify.py`). Byte `2` — the LED "thinking" pulse — remains supported by the
+firmware but is not emitted by the host tooling in this configuration.
 
 A button press is handled entirely on the board (single = acknowledge/lower,
 triple within 2 s = dance).

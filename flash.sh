@@ -4,7 +4,7 @@
 # What it does, end to end:
 #   1. Waits for a board in BOOTSEL/bootloader mode (the RPI-RP2 drive).
 #   2. Flashes CircuitPython (copies the .uf2).
-#   3. Copies all project files (boot.py, code.py, install.sh,
+#   3. Copies all project files (boot.py, code.py, install.sh, uninstall.sh,
 #      servo_notify.py, and README.board.md as the drive's README.md).
 #   4. Resets the board so boot.py applies the USB identity and renames the
 #      drive from CIRCUITPY to CLAWDBOT.
@@ -15,7 +15,7 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 UF2="$SRC_DIR/cp_waveshare_rp2040_zero-10.2.1.uf2"
-FILES=(boot.py code.py install.sh servo_notify.py)
+FILES=(boot.py code.py install.sh uninstall.sh servo_notify.py)
 BOARD_README="README.board.md"   # deployed to the drive as README.md
 NEW_LABEL="CLAWDBOT"
 BOOTLOADER="/Volumes/RPI-RP2"
