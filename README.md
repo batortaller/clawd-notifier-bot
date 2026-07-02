@@ -6,7 +6,7 @@ Claude Code is doing, from across the room:
 | State | Trigger (Claude Code hook) | Flag | LED |
 |-------|----------------------------|------|-----|
 | **Wants your attention** — finished, needs permission, or asked a question | `Stop`, `Notification` | up (180°) | solid **white** |
-| **Working** — after each tool call, or you sent a new prompt | `PostToolUse`, `UserPromptSubmit` | down (0°) | off |
+| **Working / thinking** — after each tool call, or you sent a new prompt | `PostToolUse`, `UserPromptSubmit` | down (0°) | pulses **white** (⅓ Hz) |
 | **Acknowledged** | button press | down (0°) | off |
 
 Attention requests are **ref-counted**: if several are still pending, clearing one
@@ -99,9 +99,10 @@ it in its main loop:
 | `2` | thinking / working | flag down, LED pulses white |
 | `0` | idle | flag down, LED off |
 
-The current hooks drive only `0`/`1` (ref-counted on the host, via
-`servo_notify.py`). Byte `2` — the LED "thinking" pulse — remains supported by the
-firmware but is not emitted by the host tooling in this configuration.
+`servo_notify.py` ref-counts attention on the host: `up` sends `1` (solid white);
+`down` sends `2` (working pulse) once nothing is pending, or dips (`0`→`1`) when
+attention is still pending. The mode is cached so the frequent `PostToolUse`
+`down` only refreshes the pulse once instead of hitting the port every tool call.
 
 A button press is handled entirely on the board (single = acknowledge/lower,
 triple within 2 s = dance).

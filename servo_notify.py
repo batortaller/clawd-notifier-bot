@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # servo_notify.py — installed to ~/.claude/hooks/servo_notify.py
 #
-# Sends a one-byte command to the MicroPython servo notifier over USB serial:
-#   up   (default) -> "1" : raise the flag to 180 deg (Claude wants attention:
-#                           finished, needs permission, or asked a question)
-#   down           -> "0" : lower the flag to 0 deg   (resting / default state)
+# Sends a one-byte command to the servo notifier over USB serial:
+#   up   (default) -> "1" : raise the flag, solid white LED (Claude wants your
+#                           attention: finished, needs permission, or asking)
+#   down           -> Claude is working: "2" -> flag down + pulsing white LED,
+#                     unless attention is still pending, in which case the flag
+#                     dips ("0" then "1") to signal there's more waiting.
 #
 # Exits 0 even if the board is missing so it never adds noise to Claude Code.
 import os
 import sys
+import json
 import time
 import serial
 import serial.tools.list_ports
@@ -32,26 +35,34 @@ DIP_PAUSE_S = 0.7
 NOTIFIER_VID = 0x1209
 PRODUCT_HINTS = ("Robot", "Clawd")
 
-# Tracks how many "raise" requests are still pending: "up" increments it, "down"
-# decrements it, and the flag is up whenever the count is > 0. This lets a "down"
-# that still leaves work pending dip the arm and raise it again, instead of just
-# lowering it. It also lets the frequent "down" (fired after every tool call via
-# PostToolUse) skip the serial round-trip whenever nothing is pending.
+# Persisted state: how many "attention" requests are pending ("up" increments,
+# "down" decrements — the flag is up while count > 0) plus the LED mode currently
+# shown on the board ("attention" or "working"). Tracking the mode lets the
+# frequent PostToolUse "down" refresh the working pulse once and then no-op,
+# instead of hitting the serial port on every tool call.
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".servo_state")
 
 
-def read_count():
+def read_state():
     try:
         with open(STATE_FILE) as f:
-            return max(0, int(f.read().strip()))
-    except (OSError, ValueError):
-        return 0
+            raw = f.read().strip()
+    except OSError:
+        return 0, ""
+    try:
+        data = json.loads(raw)
+        return max(0, int(data.get("count", 0))), str(data.get("mode", ""))
+    except (ValueError, AttributeError):
+        try:
+            return max(0, int(raw)), ""   # legacy format: a bare integer count
+        except ValueError:
+            return 0, ""
 
 
-def write_count(count):
+def write_state(count, mode):
     try:
         with open(STATE_FILE, "w") as f:
-            f.write(str(max(0, count)))
+            json.dump({"count": max(0, count), "mode": mode}, f)
     except OSError:
         pass
 
@@ -97,29 +108,36 @@ def send_sequence(steps):
 def main():
     arg = sys.argv[1].lower() if len(sys.argv) > 1 else "up"
     up = arg not in ("down", "lower", "idle", "0")
-    count = read_count()
+    count, mode = read_state()
 
     if up:
-        # Another attention request: count it and (re)raise the flag. "up" is rare
-        # and always sent, so a flag lowered out-of-band by the GP0 button comes
-        # back up.
-        write_count(count + 1)
+        # Attention request (Stop / Notification): count it and raise the flag,
+        # solid white. "up" is always sent, so a flag lowered out-of-band by the
+        # GP0 button comes back up.
+        write_state(count + 1, "attention")
         send_sequence([(b"1", 0)])
         sys.exit(0)
 
-    if count == 0:
-        # Nothing pending — the arm is already resting. "down" fires after every
-        # tool call (PostToolUse), so skip the serial round-trip in this common case.
+    # "down" = Claude is working now (UserPromptSubmit / PostToolUse).
+    if count > 0:
+        count -= 1
+        if count > 0:
+            # One attention cleared but more remain: dip the flag and raise it
+            # again so you can tell there's still something waiting.
+            write_state(count, "attention")
+            send_sequence([(b"0", DIP_PAUSE_S), (b"1", 0)])
+        else:
+            # Nothing pending anymore -> show the "thinking" pulse.
+            write_state(0, "working")
+            send_sequence([(b"2", 0)])
         sys.exit(0)
 
-    count -= 1
-    write_count(count)
-    if count == 0:
-        send_sequence([(b"0", 0)])                       # last item cleared: rest
-    else:
-        send_sequence([(b"0", DIP_PAUSE_S), (b"1", 0)])  # still pending: dip + raise
-
-    sys.exit(0)  # board missing or never free -> count is still updated; stay quiet
+    # Already nothing pending. Refresh the working pulse once, then let the
+    # frequent PostToolUse "down" no-op so we don't spam the serial port.
+    if mode != "working":
+        write_state(0, "working")
+        send_sequence([(b"2", 0)])
+    sys.exit(0)  # board missing or never free -> state still updated; stay quiet
 
 
 if __name__ == "__main__":

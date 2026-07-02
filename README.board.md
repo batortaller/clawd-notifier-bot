@@ -2,9 +2,10 @@
 
 A little servo flag + onboard LED that shows what Claude Code is doing.
 
-- **Flag UP + white LED** — Claude wants your attention: it finished, needs
-  permission, or asked you a question.
-- **Flag DOWN + LED off** — Claude is working, or you've acknowledged it.
+- **Flag UP + solid white LED** — Claude wants your attention: it finished,
+  needs permission, or asked you a question.
+- **Flag DOWN + pulsing white** — Claude is working / thinking.
+- **Flag DOWN + LED off** — idle / acknowledged (button press).
 
 Button (wired `GP0` → button → `GND`):
 

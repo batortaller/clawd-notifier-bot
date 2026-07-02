@@ -89,10 +89,10 @@ PYEOF
 
 echo ""
 echo "✓ All done!"
-echo "  • Servo raises to 180° when Claude Code finishes a task,"
+echo "  • Servo raises to 180° (solid white LED) when Claude Code finishes a task,"
 echo "    needs permission, or is asking you a question."
-echo "  • It lowers when the approved action completes or you send your next prompt"
-echo "    (or press the acknowledge button on GP0)."
+echo "  • While Claude is working (after each tool, or your next prompt) the flag"
+echo "    rests and the LED pulses white; the GP0 button forces it down."
 echo "  • Multiple pending requests are counted: clearing one while others remain"
 echo "    dips the arm and raises it again to signal there's still something waiting."
 echo ""
