@@ -4,8 +4,8 @@
 # What it does, end to end:
 #   1. Waits for a board in BOOTSEL/bootloader mode (the RPI-RP2 drive).
 #   2. Flashes CircuitPython (copies the .uf2).
-#   3. Copies all project files (boot.py, code.py, install.sh, README.md,
-#      servo_notify.py) onto the drive.
+#   3. Copies all project files (boot.py, code.py, install.sh,
+#      servo_notify.py, and README.board.md as the drive's README.md).
 #   4. Resets the board so boot.py applies the USB identity and renames the
 #      drive from CIRCUITPY to CLAWDBOT.
 #   5. Verifies the rename.
