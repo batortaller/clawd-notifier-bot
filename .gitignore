@@ -7,3 +7,6 @@
 # Python
 __pycache__/
 *.pyc
+
+# Hook runtime state (created next to servo_notify.py when run)
+.servo_state

@@ -2,9 +2,10 @@
 
 A little servo flag + onboard LED that shows what Claude Code is doing.
 
-- **Flag UP + solid white LED** — Claude finished, or needs your input.
+- **Flag UP + solid white LED** — Claude wants your attention: it finished,
+  needs permission, or asked you a question.
 - **Flag DOWN + pulsing white** — Claude is working / thinking.
-- **Flag DOWN + LED off** — idle / acknowledged.
+- **Flag DOWN + LED off** — idle / acknowledged (button press).
 
 Button (wired `GP0` → button → `GND`):
 
@@ -19,5 +20,7 @@ Button (wired `GP0` → button → `GND`):
    bash install.sh
    ```
 3. That's it — finish a task and watch the flag go up.
+
+To remove it later: `bash uninstall.sh`.
 
 Full docs & source: https://github.com/batortaller/clawd-notifier-bot
