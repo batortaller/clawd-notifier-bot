@@ -15,11 +15,14 @@ dips the arm and raises it again so you can tell there's more waiting.
 Press the button once to lower the flag ("I saw it"). **Triple-press within 2 s**
 to make the arm dance and flash the LED through a color show. 🎉
 
-Runs [CircuitPython](https://circuitpython.org/) on a
-[Waveshare RP2040-Zero](https://www.waveshare.com/wiki/RP2040-Zero).
-The servo uses an [MG90S](https://components101.com/motors/mg90s-metal-gear-servo-motor) 180 degree servo motor.
-
 ## Hardware
+
+- [Waveshare RP2040-Zero](https://www.waveshare.com/wiki/RP2040-Zero).
+- [MG90S](https://components101.com/motors/mg90s-metal-gear-servo-motor) 180 degree servo motor.
+- Low profile keyboard switch (can be bought cheap from Aliexpress)
+- 330uF capacitor
+
+
 
 | Part | Pin | Notes |
 |------|-----|-------|
@@ -28,8 +31,8 @@ The servo uses an [MG90S](https://components101.com/motors/mg90s-metal-gear-serv
 | Push button | `GP0` → button → `GND` | Uses the internal pull-up; no resistor needed |
 | RGB LED | `GP16` (`board.NEOPIXEL`) | Onboard WS2812, driven by the built-in `neopixel_write` |
 
-Powering the servo from USB works, but a servo is an inductive motor: add a
-**bulk capacitor (470–1000 µF) across the servo's V+/GND** to absorb current
+Powering the servo from USB works, but a servo is an inductive motor: solder a
+**bulk capacitor (200–1000 µF) on the RP2040 board's 5V and GND port to absorb current
 spikes and back-EMF. Without it, rapid motion (like the dance) can brown out or
 damage the board.
 
